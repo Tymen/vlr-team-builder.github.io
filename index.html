@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant Team Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a252f 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            justify-content: space-between;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header-info h1 {
+            font-size: 32px;
+            color: #2c2c2c;
+            margin-bottom: 5px;
+        }
+
+        .header-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stage-indicator {
+            background: linear-gradient(90deg, #FF4655, #FF6B75);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .content-section {
+            padding: 40px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ===== Rank badge: tier pips + label ===== */
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: rgba(12, 16, 22, 0.55);
+            border: 1px solid color-mix(in srgb, var(--rc, #888) 65%, transparent);
+            color: #fff;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .rank-badge .pips { display: inline-flex; gap: 4px; }
+        .pip {
+            width: 7px;
+            height: 7px;
+            transform: rotate(45deg);
+            border-radius: 1px;
+            background: rgba(255, 255, 255, 0.16);
+        }
+        .pip.on {
+            background: var(--rc, #888);
+            box-shadow: 0 0 7px color-mix(in srgb, var(--rc, #888) 80%, transparent);
+        }
+        .pip.radiant {
+            width: 9px;
+            height: 9px;
+            background: radial-gradient(circle at 30% 30%, #fff, var(--rc, #ffe08a));
+            box-shadow: 0 0 10px var(--rc, #ffe08a);
+        }
+
+        /* ===== Per-rank accent color tokens (--rc drives badges, cards, glows) ===== */
+        .rank-iron      { --rc: #8b9298; }
+        .rank-bronze    { --rc: #b07a4c; }
+        .rank-silver    { --rc: #c3ccd3; }
+        .rank-gold      { --rc: #f2c14e; }
+        .rank-platinum  { --rc: #3fc6d6; }
+        .rank-diamond   { --rc: #c089e0; }
+        .rank-ascendant { --rc: #36c07a; }
+        .rank-immortal  { --rc: #d6485f; }
+        .rank-radiant   { --rc: #ffd76a; }
+
+        /* ===== Player card: 3D flip (face-down -> reveal) ===== */
+        .card-flip {
+            perspective: 1200px;
+            height: 260px;
+            transition: transform 0.3s cubic-bezier(.2, .7, .2, 1);
+        }
+        .card-flip.flipped:hover {
+            transform: translateY(-8px);
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.75s cubic-bezier(.2, .8, .2, 1);
+        }
+        .card-flip.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front,
+        .card-back {
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            overflow: hidden;
+        }
+
+        /* Face-down back */
+        .card-back {
+            background:
+                repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 10px, transparent 10px 20px),
+                linear-gradient(160deg, #241019 0%, #0c1016 62%);
+            border: 1px solid rgba(255, 70, 85, 0.30);
+            box-shadow: inset 0 0 50px rgba(255, 70, 85, 0.10);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-back::before {
+            content: '';
+            width: 46px;
+            height: 46px;
+            transform: rotate(45deg);
+            border: 2px solid #FF4655;
+            border-radius: 8px;
+            box-shadow: 0 0 18px rgba(255, 70, 85, 0.55), inset 0 0 12px rgba(255, 70, 85, 0.4);
+        }
+        .card-back::after {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 72px;
+            background: linear-gradient(#FF4655, transparent);
+            opacity: 0.5;
+        }
+
+        /* Revealed front */
+        .card-front {
+            transform: rotateY(180deg);
+            background:
+                radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--rc, #888) 22%, transparent), transparent 60%),
+                linear-gradient(180deg, #161c24 0%, #0c1016 100%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-top: 3px solid var(--rc, #888);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 24px 16px;
+            text-align: center;
+        }
+        .card-flip.flipped:hover .card-front {
+            border-color: rgba(255, 255, 255, 0.14);
+            box-shadow: 0 22px 44px rgba(0, 0, 0, 0.55), 0 0 26px -6px var(--rc, #888);
+        }
+
+        .pc-emblem {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            transform: rotate(45deg);
+            background: linear-gradient(135deg, var(--rc, #888), rgba(0, 0, 0, 0.35));
+            box-shadow: 0 0 22px -4px var(--rc, #888), inset 0 0 14px rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pc-emblem::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+        }
+        .pc-name {
+            color: #fff;
+            font-weight: 600;
+            font-size: 17px;
+            letter-spacing: 0.2px;
+            word-break: break-word;
+            max-width: 100%;
+        }
+
+        /* ===== Animations ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInFromRight {
+            from { opacity: 0; transform: translateX(40px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        @keyframes emblemPulse {
+            0%, 100% { box-shadow: 0 0 22px -4px var(--rc, #888), inset 0 0 14px rgba(255, 255, 255, 0.25); }
+            50%      { box-shadow: 0 0 34px 2px var(--rc, #888), inset 0 0 16px rgba(255, 255, 255, 0.4); }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease-out both;
+        }
+
+        .rank-radiant .pc-emblem {
+            animation: emblemPulse 2.4s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-info">
+                <h1>Valorant Team Builder</h1>
+                <p>Balance ranked teams for your tournament</p>
+            </div>
+            <div class="stage-indicator" id="stageIndicator">ADDING PLAYERS</div>
+        </header>
+
+        <section class="content-section" id="addingPlayersStage">
+            <player-input-component></player-input-component>
+        </section>
+
+        <section class="content-section hidden" id="creatingTeamsStage">
+            <team-creation-component></team-creation-component>
+        </section>
+
+        <section class="content-section hidden" id="teamRevealStage">
+            <team-reveal-component></team-reveal-component>
+        </section>
+
+        <section class="content-section hidden" id="downloadStage">
+            <download-component></download-component>
+        </section>
+    </div>
+
+    <script>
+        // Global state (for context, not directly used in the balanceTeams function itself)
+        let gameState = {
+            players: [],
+            teams: [],
+            currentTeamIndex: 0,
+            currentStage: 'adding'
+        };
+
+        // Rank order, low -> high. Drives the weights overview and closest-rank lookup.
+        const RANK_ORDER = ['iron', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'ascendant', 'immortal', 'radiant'];
+
+        // Editable weights: points for each rank's tier 1. Tiers add +1 each; Radiant has no tier.
+        const DEFAULT_RANK_POINTS = {
+            iron: 1, bronze: 4, silver: 7, gold: 10, platinum: 13,
+            diamond: 16, ascendant: 19, immortal: 22, radiant: 25
+        };
+        let RANK_POINTS = { ...DEFAULT_RANK_POINTS };
+
+        function getRankValue(rankName, tier) {
+            if (rankName === 'radiant') return RANK_POINTS.radiant;
+            return RANK_POINTS[rankName] + ((tier || 2) - 1);
+        }
+
+        function formatRank(rankName, tier) {
+            const name = rankName.charAt(0).toUpperCase() + rankName.slice(1);
+            return tier ? `${name} ${tier}` : name;
+        }
+
+        function getRankClass(rankString) {
+            const rank = rankString.toLowerCase().split(' ')[0];
+            return `rank-${rank}`;
+        }
+
+        // Tier indicator: filled diamond pips (3 max), or a single radiant pip.
+        function rankPipsHTML(player) {
+            const rankName = player.rank.toLowerCase().split(' ')[0];
+            if (rankName === 'radiant') {
+                return '<span class="pips"><span class="pip radiant"></span></span>';
+            }
+            let pips = '';
+            for (let i = 1; i <= 3; i++) {
+                pips += `<span class="pip ${i <= player.tier ? 'on' : ''}"></span>`;
+            }
+            return `<span class="pips">${pips}</span>`;
+        }
+
+        // Pill showing the tier pips + rank label, tinted by the rank's accent color.
+        function rankBadgeHTML(player) {
+            return `<div class="rank-badge ${getRankClass(player.rank)}">${rankPipsHTML(player)}<span>${player.rank}</span></div>`;
+        }
+
+        // Average rank value of a team, plus its closest rank label.
+        function teamAverageInfo(team) {
+            const total = team.reduce((sum, p) => sum + p.rankValue, 0);
+            const value = team.length ? total / team.length : 0;
+            return { value, label: getClosestRank(value) };
+        }
+
+        // Parse lines of "Username#Tag Rank [Tier]" into players, collecting unparseable lines.
+        function parsePlayerInput(input) {
+            const players = [];
+            const errors = [];
+
+            for (const rawLine of input.split('\n')) {
+                const line = rawLine.trim();
+                if (!line) continue;
+
+                // username (may contain spaces / #tag), a rank word, and an optional 1-3 tier
+                const match = line.match(/^(.*?)\s+([A-Za-z]+)(?:\s+([1-3]))?$/);
+                if (!match) {
+                    errors.push(line);
+                    continue;
+                }
+
+                const username = match[1].trim();
+                const rankName = match[2].toLowerCase();
+                let tier = match[3] ? parseInt(match[3], 10) : null;
+
+                if (!username || !RANK_POINTS.hasOwnProperty(rankName)) {
+                    errors.push(line);
+                    continue;
+                }
+
+                if (rankName === 'radiant') {
+                    tier = null;            // Radiant has no sub-tier
+                } else if (tier === null) {
+                    tier = 2;               // a bare rank defaults to the mid tier
+                }
+
+                players.push({
+                    username,
+                    rank: formatRank(rankName, tier),
+                    tier,
+                    rankValue: getRankValue(rankName, tier)
+                });
+            }
+
+            return { players, errors };
+        }
+
+        // Reverse a numerical average back into the nearest rank label (e.g. "Diamond 2").
+        function getClosestRank(avgValue) {
+            if (!avgValue) return 'None';
+
+            let closestLabel = '';
+            let minDifference = Infinity;
+
+            for (const rankName of RANK_ORDER) {
+                const tiers = rankName === 'radiant' ? [null] : [1, 2, 3];
+                for (const tier of tiers) {
+                    const difference = Math.abs(getRankValue(rankName, tier) - avgValue);
+                    if (difference < minDifference) {
+                        minDifference = difference;
+                        closestLabel = formatRank(rankName, tier);
+                    }
+                }
+            }
+
+            return closestLabel;
+        }
+
+
+        function balanceTeams(players) {
+            const PLAYERS_PER_TEAM = 5;
+            if (players.length === 0) {
+                console.warn("No players to balance teams with.");
+                return [];
+            }
+            if (players.length % PLAYERS_PER_TEAM !== 0) {
+                throw new Error(`Number of players (${players.length}) must be divisible by ${PLAYERS_PER_TEAM} to form full teams.`);
+            }
+
+            // Sort players by rank value in descending order (higher rank value = better)
+            players.sort((a, b) => b.rankValue - a.rankValue);
+
+            const numTeams = players.length / PLAYERS_PER_TEAM;
+            const teams = Array.from({ length: numTeams }, () => []);
+            const teamScores = Array(numTeams).fill(0); // Initialize scores for each team
+
+            // Distribute players using a greedy algorithm to balance scores
+            for (const player of players) {
+                // Find the team with the lowest current score
+                let minScore = Infinity;
+                let minScoreTeamIndex = -1;
+
+                // Iterate through teams to find the one with the lowest current score
+                for (let i = 0; i < numTeams; i++) {
+                    // Only consider teams that are not yet full
+                    if (teams[i].length < PLAYERS_PER_TEAM && teamScores[i] < minScore) {
+                        minScore = teamScores[i];
+                        minScoreTeamIndex = i;
+                    }
+                }
+
+                // If for some reason a team wasn't found (shouldn't happen with correct logic),
+                // find the first available team. This is a fallback.
+                if (minScoreTeamIndex === -1) {
+                    minScoreTeamIndex = teams.findIndex(team => team.length < PLAYERS_PER_TEAM);
+                }
+
+
+                // Add player to the team with the lowest score (or first available if fallback)
+                teams[minScoreTeamIndex].push(player);
+                teamScores[minScoreTeamIndex] += player.rankValue;
+            }
+
+            // Now, let's also calculate the average ranks and store them if needed for display
+            // but the primary return value will be the simple teams array.
+            const teamAverages = [];
+            for (let i = 0; i < numTeams; i++) {
+                const totalRankValue = teams[i].reduce((sum, player) => sum + player.rankValue, 0);
+                const avgRankValue = teams[i].length > 0 ? totalRankValue / teams[i].length : 0;
+                const closestRank = getClosestRank(avgRankValue);
+                teamAverages.push({
+                    teamNumber: i + 1,
+                    averageRank: closestRank,
+                    numericalAverage: avgRankValue
+                });
+            }
+
+            // For debugging or console output, you can still print the averages
+            console.log("Team Averages and Numerical Scores:");
+            teamAverages.forEach(avgInfo => {
+                console.log(`Team ${avgInfo.teamNumber}: Avg Rank - ${avgInfo.averageRank}, Numerical Avg - ${avgInfo.numericalAverage.toFixed(2)}`);
+            });
+
+
+            // Return the teams in the simple Array<Array<Player>> format
+            return teams;
+        }
+        function switchStage(stageName) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            document.getElementById(`${stageName}Stage`).classList.remove('hidden');
+            
+            const stageNames = {
+                'addingPlayers': 'ADDING PLAYERS',
+                'creatingTeams': 'CREATING TEAMS',
+                'teamReveal': 'TEAM REVEAL',
+                'download': 'DOWNLOAD TEAMS'
+            };
+            
+            document.getElementById('stageIndicator').textContent = stageNames[stageName];
+            gameState.currentStage = stageName;
+        }
+
+        // Web Components
+        class PlayerInputComponent extends HTMLElement {
+            constructor() {
+                super();
+                this.players = [];
+            }
+
+            connectedCallback() {
+                this.innerHTML = `
+                    <div style="width: 100%; max-width: 1200px;">
+
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px;">
+                            <div style="background: #f7f8fa; border: 1px solid #ececf0; border-radius: 12px; padding: 16px; text-align: center;">
+                                <div id="playerCount" style="font-size: 28px; font-weight: 800; color: #FF4655;">0</div>
+                                <div style="font-size: 12px; color: #8a9099; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">Players added</div>
+                            </div>
+                            <div style="background: #f7f8fa; border: 1px solid #ececf0; border-radius: 12px; padding: 16px; text-align: center;">
+                                <div id="teamCount" style="font-size: 28px; font-weight: 800; color: #1c1f24;">0</div>
+                                <div style="font-size: 12px; color: #8a9099; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">Teams possible</div>
+                            </div>
+                            <div style="background: #f7f8fa; border: 1px solid #ececf0; border-radius: 12px; padding: 16px; text-align: center;">
+                                <div id="validationStatus" style="font-size: 20px; font-weight: 700; color: #8a9099;">Add players</div>
+                                <div style="font-size: 12px; color: #8a9099; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">Status</div>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr); gap: 22px; align-items: start;">
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #444; font-size: 14px;">
+                                    Players &mdash; one per line: <code style="background:#f0f1f4; padding:2px 6px; border-radius:5px; font-size:12px;">Name#Tag Rank [Tier]</code>
+                                </label>
+                                <textarea
+                                    id="playerInput"
+                                    placeholder="TenZ#SEN Radiant&#10;yay#C9 Immortal 3&#10;ShahZaM#G2 Diamond 1&#10;asuna#100T Ascendant 2&#10;Zellsis#VKS Platinum 3"
+                                    style="width: 100%; height: 232px; padding: 16px; border: 1px solid #dfe1e6; border-radius: 12px; font-size: 14px; font-family: 'Consolas','Monaco',monospace; resize: vertical; transition: border-color 0.2s, box-shadow 0.2s; line-height: 1.7; color:#1c1f24;"
+                                ></textarea>
+                                <div id="inputErrors" style="color: #FF4655; font-size: 13px; margin-top: 8px; min-height: 18px;"></div>
+                                <button
+                                    id="createTeamsBtn"
+                                    disabled
+                                    style="margin-top: 4px; width: 100%; background: linear-gradient(90deg, #FF4655, #FF6B75); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: not-allowed; letter-spacing: 0.5px; transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s; opacity: 0.5;"
+                                >
+                                    Create Teams
+                                </button>
+                            </div>
+
+                            <div style="background: #fff; border: 1px solid #ececf0; border-radius: 14px; padding: 16px 16px 8px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                    <div style="font-weight: 700; color: #1c1f24; font-size: 15px;">Rank weights</div>
+                                    <button id="editWeightsBtn" style="background: transparent; border: 1px solid #d7dae0; color: #FF4655; font-weight: 600; font-size: 12px; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
+                                        onmouseover="this.style.background='#fbeaec'" onmouseout="this.style.background='transparent'">Edit</button>
+                                </div>
+                                <div style="font-size: 12px; color: #9aa0a6; margin-bottom: 10px;">Balance points per rank &middot; tiers add +1</div>
+                                <div id="weightsList"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 26px;">
+                            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom: 12px; border-top: 1px solid #eef0f3; padding-top: 18px;">
+                                <span style="font-weight: 700; color:#1c1f24; font-size: 15px;">Loaded players</span>
+                                <span id="loadedHint" style="font-size: 13px; color:#9aa0a6;">none yet &mdash; paste your roster above</span>
+                            </div>
+                            <div id="playerGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;"></div>
+                        </div>
+                    </div>
+
+                    <div id="weightsModal" style="display:none; position: fixed; inset: 0; background: rgba(8,10,14,0.62); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+                        <div style="background: #fff; border-radius: 16px; padding: 22px 24px; width: min(460px, 94vw); max-height: 88vh; overflow: auto; box-shadow: 0 30px 70px rgba(0,0,0,0.4);">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 4px;">
+                                <h3 style="color:#1c1f24; font-size: 19px; font-weight: 800; margin:0;">Edit rank weights</h3>
+                                <button id="weightsCloseBtn" style="background:none; border:none; font-size:24px; line-height:1; color:#9aa0a6; cursor:pointer;">&times;</button>
+                            </div>
+                            <p style="color:#8a9099; font-size: 13px; margin: 0 0 16px;">Tier-1 points for each rank. Tiers 2 and 3 add +1 and +2.</p>
+                            <div id="weightsEditList"></div>
+                            <div style="display:flex; gap:10px; margin-top: 18px;">
+                                <button id="weightsResetBtn" style="flex:0 0 auto; background:transparent; border:1px solid #d7dae0; color:#555; font-weight:600; font-size:13px; padding:11px 16px; border-radius:10px; cursor:pointer;">Reset</button>
+                                <button id="weightsSaveBtn" style="flex:1; background: linear-gradient(90deg,#FF4655,#FF6B75); border:none; color:#fff; font-weight:700; font-size:14px; padding:11px; border-radius:10px; cursor:pointer;">Save weights</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                this.renderWeightsPanel();
+                this.setupEventListeners();
+            }
+
+            renderWeightsPanel() {
+                const list = this.querySelector('#weightsList');
+                list.innerHTML = RANK_ORDER.map((r, i) => {
+                    const range = r === 'radiant' ? `${RANK_POINTS[r]}` : `${RANK_POINTS[r]}–${RANK_POINTS[r] + 2}`;
+                    const divider = i < RANK_ORDER.length - 1 ? 'border-bottom:1px solid #f2f3f5;' : '';
+                    return `
+                        <div class="rank-${r}" style="display:flex; align-items:center; gap:10px; padding:7px 2px; ${divider}">
+                            <span style="width:11px; height:11px; border-radius:3px; transform:rotate(45deg); background:var(--rc); box-shadow:0 0 7px var(--rc);"></span>
+                            <span style="flex:1; color:#33373d; font-weight:600; font-size:13px; text-transform:capitalize;">${r}</span>
+                            <span style="color:#1c1f24; font-weight:700; font-size:13px; font-variant-numeric:tabular-nums;">${range}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            setupEventListeners() {
+                const input = this.querySelector('#playerInput');
+                const createBtn = this.querySelector('#createTeamsBtn');
+
+                input.addEventListener('input', () => this.updatePlayerDisplay());
+                createBtn.addEventListener('click', () => this.createTeams());
+
+                input.addEventListener('focus', () => {
+                    input.style.borderColor = '#FF4655';
+                    input.style.boxShadow = '0 0 0 3px rgba(255, 70, 85, 0.12)';
+                });
+                input.addEventListener('blur', () => {
+                    input.style.borderColor = '#dfe1e6';
+                    input.style.boxShadow = 'none';
+                });
+
+                this.querySelector('#editWeightsBtn').addEventListener('click', () => this.openWeightsModal());
+                this.querySelector('#weightsCloseBtn').addEventListener('click', () => this.closeWeightsModal());
+                this.querySelector('#weightsResetBtn').addEventListener('click', () => this.fillWeightsEditor(DEFAULT_RANK_POINTS));
+                this.querySelector('#weightsSaveBtn').addEventListener('click', () => this.saveWeights());
+                this.querySelector('#weightsModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'weightsModal') this.closeWeightsModal();
+                });
+            }
+
+            openWeightsModal() {
+                const editList = this.querySelector('#weightsEditList');
+                editList.innerHTML = RANK_ORDER.map((r, i) => {
+                    const divider = i < RANK_ORDER.length - 1 ? 'border-bottom:1px solid #f2f3f5;' : '';
+                    return `
+                        <div class="rank-${r}" style="display:flex; align-items:center; gap:12px; padding:8px 0; ${divider}">
+                            <span style="width:12px; height:12px; border-radius:3px; transform:rotate(45deg); background:var(--rc); box-shadow:0 0 7px var(--rc);"></span>
+                            <label for="w-${r}" style="flex:1; color:#33373d; font-weight:600; font-size:14px; text-transform:capitalize;">${r}</label>
+                            <input id="w-${r}" type="number" min="1" max="999" value="${RANK_POINTS[r]}"
+                                style="width:78px; padding:8px 10px; border:1px solid #dfe1e6; border-radius:8px; font-size:14px; text-align:center; color:#1c1f24;">
+                        </div>
+                    `;
+                }).join('');
+                this.querySelector('#weightsModal').style.display = 'flex';
+            }
+
+            fillWeightsEditor(values) {
+                RANK_ORDER.forEach(r => {
+                    const el = this.querySelector(`#w-${r}`);
+                    if (el) el.value = values[r];
+                });
+            }
+
+            closeWeightsModal() {
+                this.querySelector('#weightsModal').style.display = 'none';
+            }
+
+            saveWeights() {
+                RANK_ORDER.forEach(r => {
+                    const el = this.querySelector(`#w-${r}`);
+                    const v = parseInt(el.value, 10);
+                    if (!isNaN(v) && v > 0) RANK_POINTS[r] = v;
+                });
+                this.closeWeightsModal();
+                this.renderWeightsPanel();
+                this.updatePlayerDisplay();
+            }
+
+            updatePlayerDisplay() {
+                const input = this.querySelector('#playerInput');
+                const grid = this.querySelector('#playerGrid');
+                const createBtn = this.querySelector('#createTeamsBtn');
+                const playerCountEl = this.querySelector('#playerCount');
+                const teamCountEl = this.querySelector('#teamCount');
+                const statusEl = this.querySelector('#validationStatus');
+                const errorsEl = this.querySelector('#inputErrors');
+                const loadedHintEl = this.querySelector('#loadedHint');
+
+                const { players, errors } = parsePlayerInput(input.value);
+                this.players = players;
+
+                errorsEl.textContent = errors.length
+                    ? `Ignored ${errors.length} unrecognized line(s): ${errors.join('  •  ')}`
+                    : '';
+
+                const count = this.players.length;
+                playerCountEl.textContent = count;
+                teamCountEl.textContent = Math.floor(count / 5);
+                loadedHintEl.textContent = count === 0
+                    ? 'none yet — paste your roster above'
+                    : `${count} player${count !== 1 ? 's' : ''} parsed`;
+
+                if (count === 0) {
+                    statusEl.textContent = "Add players";
+                    statusEl.style.color = "#8a9099";
+                } else if (count % 5 !== 0) {
+                    statusEl.textContent = `Need ${5 - (count % 5)} more`;
+                    statusEl.style.color = "#FF9800";
+                } else {
+                    statusEl.textContent = "Ready";
+                    statusEl.style.color = "#3fae6b";
+                }
+
+                grid.innerHTML = this.players.map((player) => `
+                    <div class="${getRankClass(player.rank)}" style="background: #ffffff; border: 1px solid #ececf0; border-left: 4px solid var(--rc, #ccc); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: transform 0.2s, box-shadow 0.2s;"
+                         onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 24px rgba(0,0,0,0.10)'"
+                         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 700; color: #1c1f24; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${player.username}</div>
+                            <div style="color: #9aa0a6; font-size: 12px; margin-top: 2px;">${player.rankValue} pts</div>
+                        </div>
+                        ${rankBadgeHTML(player)}
+                    </div>
+                `).join('');
+
+                const canCreateTeams = count >= 5 && count % 5 === 0;
+                createBtn.disabled = !canCreateTeams;
+                createBtn.style.opacity = canCreateTeams ? '1' : '0.5';
+                createBtn.style.cursor = canCreateTeams ? 'pointer' : 'not-allowed';
+
+                if (canCreateTeams) {
+                    createBtn.onmouseover = () => {
+                        createBtn.style.transform = 'translateY(-2px)';
+                        createBtn.style.boxShadow = '0 12px 28px rgba(255, 70, 85, 0.4)';
+                    };
+                    createBtn.onmouseout = () => {
+                        createBtn.style.transform = 'translateY(0)';
+                        createBtn.style.boxShadow = 'none';
+                    };
+                } else {
+                    createBtn.onmouseover = null;
+                    createBtn.onmouseout = null;
+                }
+            }
+
+            createTeams() {
+                if (this.players.length < 5 || this.players.length % 5 !== 0) return;
+                
+                gameState.players = this.players;
+                switchStage('creatingTeams');
+                
+                // Start team creation process
+                setTimeout(() => {
+                    document.querySelector('team-creation-component').startCreation();
+                }, 100);
+            }
+        }
+
+        class TeamCreationComponent extends HTMLElement {
+            connectedCallback() {
+                this.innerHTML = `
+                    <div class="animate-in" style="text-align: center;">
+                        <div style="width: 72px; height: 72px; border: 4px solid #eceff3; border-top: 4px solid #FF4655; border-radius: 50%; margin: 0 auto 26px; animation: spin 0.9s linear infinite;"></div>
+                        <h2 style="color: #FF4655; margin-bottom: 8px; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Balancing teams</h2>
+                        <p style="color: #9aa0a6; font-size: 15px;">Distributing players for the fairest match-ups</p>
+                    </div>
+                `;
+            }
+
+            startCreation() {
+                // Balancing is instant; a brief beat keeps the transition smooth without faking progress.
+                setTimeout(() => {
+                    try {
+                        gameState.teams = balanceTeams(gameState.players);
+                        gameState.currentTeamIndex = 0;
+                        switchStage('teamReveal');
+                        document.querySelector('team-reveal-component').start();
+                    } catch (error) {
+                        alert('Error creating teams: ' + error.message);
+                        switchStage('addingPlayers');
+                    }
+                }, 800);
+            }
+        }
+
+        class TeamRevealComponent extends HTMLElement {
+            constructor() {
+                super();
+                this.revealed = false;
+            }
+
+            connectedCallback() {
+                this.render();
+            }
+
+            // Called when the reveal stage is entered for a fresh set of teams.
+            start() {
+                this.revealed = false;
+                this.render();
+            }
+
+            render() {
+                const hasTeams = gameState.teams.length > 0;
+                const currentTeam = hasTeams ? gameState.teams[gameState.currentTeamIndex] : null;
+                const teamNumber = gameState.currentTeamIndex + 1;
+                const totalTeams = gameState.teams.length;
+
+                if (!this.revealed) {
+                    this.innerHTML = `
+                        <div class="animate-in" style="text-align: center;">
+                            <div style="padding: 20px; margin: 20px auto; max-width: 560px;">
+                                <h2 style="color: #1c1f24; font-size: 26px; font-weight: 800; margin-bottom: 10px;">Teams are ready</h2>
+                                <p style="color: #9aa0a6; font-size: 15px; margin-bottom: 32px;">Reveal each team one card at a time.</p>
+                                <button
+                                    id="revealBtn"
+                                    style="background: linear-gradient(90deg, #FF4655, #FF6B75); color: white; border: none; padding: 18px 52px; border-radius: 14px; font-size: 17px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 26px rgba(255, 70, 85, 0.35);"
+                                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 16px 34px rgba(255, 70, 85, 0.5)'"
+                                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 26px rgba(255, 70, 85, 0.35)'"
+                                >
+                                    Reveal Teams
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    this.querySelector('#revealBtn').addEventListener('click', () => {
+                        this.revealed = true;
+                        this.startRevealSequence();
+                    });
+                } else {
+                    this.showTeam(currentTeam, teamNumber, totalTeams);
+                }
+            }
+
+            // --- Markup helpers (shared by the animated reveal and the static re-show) ---
+            cardHTML(player, index, flipped) {
+                return `
+                    <div class="card-flip${flipped ? ' flipped' : ''}" id="player-${index}">
+                        <div class="card-inner">
+                            <div class="card-back"></div>
+                            <div class="card-front ${getRankClass(player.rank)}">
+                                <div class="pc-emblem"></div>
+                                <div class="pc-name">${player.username}</div>
+                                ${rankBadgeHTML(player)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            controlsHTML(totalTeams) {
+                const base = 'color:#fff; border:none; padding:16px 46px; border-radius:14px; font-size:16px; font-weight:700; cursor:pointer; letter-spacing:0.4px; transition:transform 0.2s, box-shadow 0.2s;';
+                if (gameState.currentTeamIndex >= totalTeams - 1) {
+                    return `<button id="finishBtn" style="${base} background:linear-gradient(90deg,#2f9e63,#46c07a); box-shadow:0 8px 20px rgba(54,176,107,0.3);"
+                        onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 14px 30px rgba(54,176,107,0.45)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 20px rgba(54,176,107,0.3)'">Finish &amp; Download</button>`;
+                }
+                return `<button id="nextTeamBtn" style="${base} background:linear-gradient(90deg,#FF4655,#FF6B75); box-shadow:0 8px 20px rgba(255,70,85,0.3);"
+                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 14px 30px rgba(255,70,85,0.45)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 20px rgba(255,70,85,0.3)'">Next Team</button>`;
+            }
+
+            counterHTML(teamNumber, totalTeams) {
+                return `<div style="margin-top:8px; color:#cfd3d8; font-size:13px; font-weight:600; letter-spacing:1.5px; background:#11151b; border:1px solid rgba(255,70,85,0.4); padding:9px 22px; border-radius:999px; display:inline-block;">TEAM ${teamNumber} OF ${totalTeams}</div>`;
+            }
+
+            teamHeadingHTML(teamNumber, team) {
+                const a = teamAverageInfo(team);
+                return `
+                    <div style="margin-bottom:34px;">
+                        <h2 style="color:#1c1f24; margin:0 0 8px; font-size:30px; font-weight:800; letter-spacing:0.5px;">Team ${teamNumber}</h2>
+                        <div style="font-size:14px; color:#8a9099;">Avg rank <span style="color:#1c1f24; font-weight:700;">${a.label}</span> <span style="color:#c2c6cc;">&middot;</span> ${a.value.toFixed(1)} pts</div>
+                    </div>
+                `;
+            }
+
+            gridStyle() {
+                return 'display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:22px; margin:0 auto 40px; max-width:1100px;';
+            }
+
+            startRevealSequence() {
+                this.innerHTML = `
+                    <div class="animate-in" style="text-align: center;">
+                        <h2 style="color:#1c1f24; margin-bottom:30px; font-size:28px; font-weight:800; letter-spacing:0.5px;">
+                            Revealing Team ${gameState.currentTeamIndex + 1}
+                        </h2>
+                        <div style="padding:30px; margin:10px auto;">
+                            <div id="countdown" style="font-size:84px; line-height:1; color:#FF4655; font-weight:800; transition:transform 0.2s ease; margin-bottom:14px;">3</div>
+                            <div style="color:#9aa0a6; font-size:14px; letter-spacing:2px; text-transform:uppercase;">Get ready</div>
+                        </div>
+                    </div>
+                `;
+
+                this.runCountdown();
+            }
+
+            runCountdown() {
+                const countdownEl = this.querySelector('#countdown');
+                let count = 3;
+
+                const interval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownEl.textContent = count;
+                        countdownEl.style.transform = 'scale(1.4)';
+                        setTimeout(() => countdownEl.style.transform = 'scale(1)', 180);
+                    } else {
+                        countdownEl.textContent = 'GO';
+                        countdownEl.style.color = '#36c07a';
+                        countdownEl.style.transform = 'scale(1.6)';
+                        clearInterval(interval);
+
+                        setTimeout(() => {
+                            this.revealPlayersSequentially(gameState.teams[gameState.currentTeamIndex]);
+                        }, 700);
+                    }
+                }, 800);
+            }
+
+            revealPlayersSequentially(team) {
+                const teamNumber = gameState.currentTeamIndex + 1;
+                const totalTeams = gameState.teams.length;
+
+                this.innerHTML = `
+                    <div class="animate-in" style="text-align:center; width:100%;">
+                        ${this.teamHeadingHTML(teamNumber, team)}
+                        <div id="playerContainer" style="${this.gridStyle()}">
+                            ${team.map((player, index) => this.cardHTML(player, index, false)).join('')}
+                        </div>
+                        <div id="controlsContainer" style="opacity:0; transition:opacity 0.4s; margin-bottom:18px;">
+                            ${this.controlsHTML(totalTeams)}
+                        </div>
+                        ${this.counterHTML(teamNumber, totalTeams)}
+                    </div>
+                `;
+
+                // Flip the cards face-up, one after another.
+                team.forEach((_, index) => {
+                    setTimeout(() => {
+                        const card = this.querySelector(`#player-${index}`);
+                        if (card) card.classList.add('flipped');
+                    }, index * 260 + 300);
+                });
+
+                // Reveal the controls once the last card has flipped.
+                setTimeout(() => {
+                    const controls = this.querySelector('#controlsContainer');
+                    if (controls) controls.style.opacity = '1';
+                    this.setupTeamEventListeners();
+                }, team.length * 260 + 900);
+            }
+
+            showTeam(team, teamNumber, totalTeams) {
+                // Static re-show (no flip) for navigating back to an already-revealed team.
+                this.innerHTML = `
+                    <div class="animate-in" style="text-align:center; width:100%;">
+                        ${this.teamHeadingHTML(teamNumber, team)}
+                        <div style="${this.gridStyle()}">
+                            ${team.map((player, index) => this.cardHTML(player, index, true)).join('')}
+                        </div>
+                        <div style="margin-bottom:18px;">
+                            ${this.controlsHTML(totalTeams)}
+                        </div>
+                        ${this.counterHTML(teamNumber, totalTeams)}
+                    </div>
+                `;
+
+                this.setupTeamEventListeners();
+            }
+
+            setupTeamEventListeners() {
+                const nextBtn = this.querySelector('#nextTeamBtn');
+                const finishBtn = this.querySelector('#finishBtn');
+
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', () => {
+                        gameState.currentTeamIndex++;
+                        // Flip-reveal the next team too (skip the 3-2-1 countdown after the first).
+                        this.revealPlayersSequentially(gameState.teams[gameState.currentTeamIndex]);
+                    });
+                }
+
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        switchStage('download');
+                        document.querySelector('download-component').refresh();
+                    });
+                }
+            }
+        }
+
+        class DownloadComponent extends HTMLElement {
+            connectedCallback() {
+                this.render();
+            }
+
+            // Re-render from the latest gameState when the download stage is entered.
+            refresh() {
+                this.render();
+            }
+
+            boardHTML() {
+                if (!gameState.teams.length) return '';
+                return `
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; max-width:1100px; margin:0 auto 34px;">
+                        ${gameState.teams.map((team, i) => {
+                            const a = teamAverageInfo(team);
+                            const sorted = [...team].sort((x, y) => y.rankValue - x.rankValue);
+                            return `
+                                <div style="background:linear-gradient(180deg,#161c24,#0c1016); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:16px; text-align:left;">
+                                    <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                                        <div style="color:#fff; font-weight:800; font-size:16px;">Team ${i + 1}</div>
+                                        <div style="color:#9aa0a6; font-size:12px;">Avg <span style="color:#fff; font-weight:700;">${a.label}</span> &middot; ${a.value.toFixed(1)}</div>
+                                    </div>
+                                    <div style="display:flex; flex-direction:column; gap:9px;">
+                                        ${sorted.map(p => `
+                                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                                                <span style="color:#e6e8eb; font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.username}</span>
+                                                ${rankBadgeHTML(p)}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            render() {
+                const n = gameState.teams.length;
+                this.innerHTML = `
+                    <div class="animate-in" style="text-align:center; width:100%;">
+                        <h2 style="color:#1c1f24; margin-bottom:6px; font-size:30px; font-weight:800; letter-spacing:0.5px;">Tournament complete</h2>
+                        <p style="color:#8a9099; font-size:14px; margin-bottom:30px;">${n} balanced team${n !== 1 ? 's' : ''} ready &mdash; review and export below</p>
+                        ${this.boardHTML()}
+                        <button
+                            id="downloadBtn"
+                            style="background: linear-gradient(90deg, #2f9e63, #46c07a); color: white; border: none; padding: 16px 46px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 26px rgba(54, 176, 107, 0.35);"
+                            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 16px 34px rgba(54, 176, 107, 0.5)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 26px rgba(54, 176, 107, 0.35)'"
+                        >
+                            Download Teams (CSV)
+                        </button>
+                        <div style="margin-top: 18px;">
+                            <button
+                                id="newTournamentBtn"
+                                style="background: transparent; color: #FF4655; border: 1px solid rgba(255,70,85,0.5); padding: 12px 30px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.2s; letter-spacing: 0.3px;"
+                                onmouseover="this.style.background='rgba(255,70,85,0.08)'; this.style.transform='translateY(-2px)'"
+                                onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)'"
+                            >
+                                New Tournament
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                this.setupDownloadListeners();
+            }
+
+            setupDownloadListeners() {
+                this.querySelector('#downloadBtn').addEventListener('click', () => this.downloadExcel());
+                this.querySelector('#newTournamentBtn').addEventListener('click', () => this.resetTournament());
+            }
+
+            downloadExcel() {
+                try {
+                    // Grouped per-team blocks: a team header with averages, then its players (highest rank first).
+                    const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
+                    let csvContent = '';
+
+                    gameState.teams.forEach((team, teamIndex) => {
+                        const a = teamAverageInfo(team);
+                        csvContent += `${esc('Team ' + (teamIndex + 1))},${esc('Avg rank')},${esc(a.label)},${esc('Avg points')},${a.value.toFixed(2)}\n`;
+                        csvContent += `${esc('Player')},${esc('Rank')},${esc('Points')}\n`;
+                        [...team]
+                            .sort((x, y) => y.rankValue - x.rankValue)
+                            .forEach(player => {
+                                csvContent += `${esc(player.username)},${esc(player.rank)},${player.rankValue}\n`;
+                            });
+                        csvContent += '\n';
+                    });
+
+                    // Create blob and download
+                    const blob = new Blob([csvContent], { 
+                        type: 'text/csv;charset=utf-8;' 
+                    });
+                    
+                    // Create download link
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `valorant-tournament-teams-${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    
+                    // Trigger download
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Clean up
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                    
+                    // Show success feedback
+                    this.showDownloadSuccess();
+                    
+                } catch (error) {
+                    console.error('Download failed:', error);
+                    alert('Download failed. Please try again or check your browser settings.');
+                }
+            }
+
+            showDownloadSuccess() {
+                const btn = this.querySelector('#downloadBtn');
+                const originalHTML = btn.innerHTML;
+                const originalStyle = btn.style.background;
+                
+                btn.innerHTML = 'Downloaded';
+                btn.style.background = 'linear-gradient(90deg, #2f9e63, #46c07a)';
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.style.background = originalStyle;
+                    btn.disabled = false;
+                }, 3000);
+            }
+
+            resetTournament() {
+                // Clear all game state
+                gameState = {
+                    players: [],
+                    teams: [],
+                    currentTeamIndex: 0,
+                    currentStage: 'adding'
+                };
+                
+                // Reset the input component
+                const playerComponent = document.querySelector('player-input-component');
+                if (playerComponent) {
+                    const input = playerComponent.querySelector('#playerInput');
+                    if (input) {
+                        input.value = '';
+                        playerComponent.updatePlayerDisplay();
+                    }
+                }
+                
+                // Reset the reveal component so the next tournament starts clean
+                const revealComponent = document.querySelector('team-reveal-component');
+                if (revealComponent) revealComponent.revealed = false;
+
+                // Switch back to adding players stage
+                switchStage('addingPlayers');
+            }
+        }
+
+        // Register web components
+        customElements.define('player-input-component', PlayerInputComponent);
+        customElements.define('team-creation-component', TeamCreationComponent);
+        customElements.define('team-reveal-component', TeamRevealComponent);
+        customElements.define('download-component', DownloadComponent);
+    </script>
+</body>
+</html>
